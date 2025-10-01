@@ -452,6 +452,9 @@ if uploaded_file is not None:
 
         st.success(f"Export file ready: {export_filename}")
 
+        # เพิ่มบรรทัดนี้ก่อน download
+        output.seek(0)  # ← สำคัญมาก!
+
         # Select save location: Streamlit ไม่สามารถเลือก local folder ได้โดยตรง ต้องใช้ download button แทน
         st.download_button(
             label="Download Excel file",
@@ -463,5 +466,6 @@ if uploaded_file is not None:
 
        
     
+
 
 
