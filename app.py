@@ -440,7 +440,8 @@ if uploaded_file is not None:
         # 3. Export to Excel (user specifies filename/location)
         
         dtstr = datetime.datetime.now().strftime("%Y%m%d")
-        export_filename = f"{dtstr}_{ori_file_name}_results.xlsx"
+        #export_filename = f"{dtstr}_{ori_file_name}_results.xlsx"
+        export_filename = f"{ori_file_name}_results.xlsx"
 
         output = io.BytesIO()
 
@@ -462,4 +463,5 @@ if uploaded_file is not None:
 
        
     
+
 
