@@ -113,9 +113,22 @@ if uploaded_file is not None:
         
         # Replace Double Space with Space, Trim, Drop null row
         df_raw = pd.read_excel(uploaded_file, header=0)
-        df_raw = df_raw.replace(r'\s+', ' ', regex=True).apply(lambda x: x.str.strip() if x.dtype == "object" else x).dropna(how='all')
+        #df_raw = df_raw.replace(r'\s+', ' ', regex=True).apply(lambda x: x.str.strip() if x.dtype == "object" else x).dropna(how='all')
         #df_raw = pd.read_excel(uploaded_file, header=0).replace('  ', ' ', regex=False).apply(lambda x: x.str.strip() if x.dtype == "object" else x).dropna(how='all')
 
+        # 1) แทนที่ whitespace หลายตัว (รวม space, tab, newline) ให้เป็น space เดียว
+        df_raw = df_raw.replace(r'\s+', ' ', regex=True)
+
+        # 2) Trim เฉพาะคอลัมน์ที่เป็นข้อความจริงๆ และเฉพาะค่าที่เป็น string
+        text_cols = df_raw.select_dtypes(include=['object']).columns
+        for c in text_cols:
+            # ใช้ .where เพื่อเลี่ยงการแปลง NaN และคงค่าที่ไม่ใช่ string
+            df_raw[c] = df_raw[c].where(df_raw[c].isna(), df_raw[c].map(lambda v: v.strip() if isinstance(v, str) else v))
+
+        # 3) ลบแถวที่ทุกคอลัมน์เป็น NaN
+        df_raw = df_raw.dropna(how='all')
+
+       
         # ใช้ตั้งแต่แถว 2 เป็นต้นไป (ใน pandas index 0 = Excel row 2)
         manual_input = df_raw.copy().reset_index(drop=True)
         excel_data = df_raw.iloc[:, 0:10].copy().reset_index(drop=True)  # columns 0-9 (A-J)
@@ -462,6 +475,7 @@ if uploaded_file is not None:
         )
        
     
+
 
 
 
