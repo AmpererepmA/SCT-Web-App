@@ -6,3 +6,4 @@ openpyxl
 matplotlib
 requests
 ipython
+xlsxwriter
