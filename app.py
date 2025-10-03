@@ -89,7 +89,7 @@ st.markdown(
 # --- โหลดโมเดลจาก .pkl ---
 @st.cache_resource
 def load_model_from_pickle():
-    with open("model_and_encoders_latest.pkl", "rb") as f:
+    with open("model_and_encoders_latestpercent.pkl", "rb") as f:
         clf, encoders, target_encoder, feature_columns = pickle.load(f)
     return clf, encoders, target_encoder, feature_columns
 
@@ -475,6 +475,7 @@ if uploaded_file is not None:
         )
        
     
+
 
 
 
