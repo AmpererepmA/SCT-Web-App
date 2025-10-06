@@ -11,6 +11,7 @@ from pathlib import Path
 import openpyxl
 from openpyxl.styles import Font, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
+import numpy as np
 
 
 # --- ฟังก์ชันแปลงภาพเป็น base64 สำหรับใช้ใน CSS ---
@@ -89,11 +90,11 @@ st.markdown(
 # --- โหลดโมเดลจาก .pkl ---
 @st.cache_resource
 def load_model_from_pickle():
-    with open("model_and_encoders_latestpercent.pkl", "rb") as f:
-        clf, encoders, target_encoder, feature_columns = pickle.load(f)
-    return clf, encoders, target_encoder, feature_columns
+    with open("20251003_model_and_encoders_newpercent.pkl", "rb") as f:
+        clf, encoders, target_encoder, feature_columns,X_train, y_train = pickle.load(f)
+    return clf, encoders, target_encoder, feature_columns, X_train, y_train 
 
-clf, encoders, target_encoder, feature_columns = load_model_from_pickle()
+clf, encoders, target_encoder, feature_columns, X_train, y_train  = load_model_from_pickle()
 
 # --- 
 
@@ -113,10 +114,7 @@ if uploaded_file is not None:
         
         # Replace Double Space with Space, Trim, Drop null row
         df_raw = pd.read_excel(uploaded_file, header=0)
-        #df_raw = df_raw.replace(r'\s+', ' ', regex=True).apply(lambda x: x.str.strip() if x.dtype == "object" else x).dropna(how='all')
-        #df_raw = pd.read_excel(uploaded_file, header=0).replace('  ', ' ', regex=False).apply(lambda x: x.str.strip() if x.dtype == "object" else x).dropna(how='all')
-
-        # 1) แทนที่ whitespace หลายตัว (รวม space, tab, newline) ให้เป็น space เดียว
+       # 1) แทนที่ whitespace หลายตัว (รวม space, tab, newline) ให้เป็น space เดียว
         df_raw = df_raw.replace(r'\s+', ' ', regex=True)
 
         # 2) Trim เฉพาะคอลัมน์ที่เป็นข้อความจริงๆ และเฉพาะค่าที่เป็น string
@@ -127,8 +125,9 @@ if uploaded_file is not None:
 
         # 3) ลบแถวที่ทุกคอลัมน์เป็น NaN
         df_raw = df_raw.dropna(how='all')
+        
+        #df_raw = pd.read_excel(uploaded_file, header=0).replace('  ', ' ', regex=False).apply(lambda x: x.str.strip() if x.dtype == "object" else x).dropna(how='all')
 
-       
         # ใช้ตั้งแต่แถว 2 เป็นต้นไป (ใน pandas index 0 = Excel row 2)
         manual_input = df_raw.copy().reset_index(drop=True)
         excel_data = df_raw.iloc[:, 0:10].copy().reset_index(drop=True)  # columns 0-9 (A-J)
@@ -148,7 +147,7 @@ if uploaded_file is not None:
 
 
         import pandas as pd
-
+        print ('manual_input', manual_input)
 # สร้าง list เพื่อเก็บข้อมูลสำหรับ DataFrame
         unknown_data = []
 
@@ -159,7 +158,7 @@ if uploaded_file is not None:
                 test_values = manual_input[col].astype(str)
                 known_values = set(encoders[col].classes_.astype(str))
                 unknown_values = set(test_values.unique()) - known_values
-                
+                #print('unknown_values', unknown_values)
 
                 try:
                     manual_input[col] = encoders[col].transform(test_values)
@@ -241,7 +240,57 @@ if uploaded_file is not None:
             
         
        
-        y_pred = clf.predict(manual_input)  
+        #y_pred = clf.predict(manual_input)  
+
+        def predict_with_confidence_exact(clf, manual_input, X_train):
+        #"""Version 2: Check for exact match (all features must be identical)"""
+            y_pred = clf.predict(manual_input)
+            y_proba = clf.predict_proba(manual_input)
+            
+            confidences = []
+            
+            # Convert to numpy arrays
+            if not isinstance(X_train, np.ndarray):
+                X_train_array = X_train.values
+            else:
+                X_train_array = X_train
+                
+            if not isinstance(manual_input, np.ndarray):
+                manual_array = manual_input.values
+            else:
+                manual_array = manual_input
+            
+            for i in range(len(manual_array)):
+                # Check if exact match exists
+                matches = np.all(X_train_array == manual_array[i], axis=1)
+                
+                if np.any(matches):
+                    # Found exact match in training data
+                    confidence = 100.0
+                else:
+                    # Use Random Forest probability
+                    confidence = np.max(y_proba[i]) * 100
+                
+                confidences.append(confidence)
+            
+            return y_pred, np.array(confidences)
+
+    # ใช้งาน
+        y_pred, confidences = predict_with_confidence_exact(clf, manual_input, X_train)
+        print("y_pred, confidences",y_pred, confidences )
+
+
+
+
+
+
+
+
+
+
+
+
+
         ##print (y_pred)     
         predicted_label = target_encoder.inverse_transform(y_pred)
 
@@ -250,6 +299,7 @@ if uploaded_file is not None:
         #print('##########result_df before', result_df)
         result_df.insert(0, "ExcelRow", result_df.index + 2)  # index 0 = Excel row 2
         result_df["Prediction"] = predicted_label
+        result_df["confidences"] = confidences
         
 
 
@@ -277,10 +327,10 @@ if uploaded_file is not None:
         #             pretty_col = col.strip().replace(' group','').replace('.', '.')
         #             index2txt[idx].append(f"{pretty_col} : {val}")
 
-            print("unknown_details DataFrame:")
-            print(unknown_details)
-            print("\nData types:")
-            print(unknown_details.dtypes)
+            # print("unknown_details DataFrame:")
+            # print(unknown_details)
+            # print("\nData types:")
+            # print(unknown_details.dtypes)
 
             unknown_details["colval_str"] = unknown_details["colname"] + ": " + unknown_details["unknown_values"]
 
@@ -293,16 +343,16 @@ if uploaded_file is not None:
                 .rename(columns={"colval_str": "colname_unknown_values"})
             )
 
-            print(unknown_details_grouped)
+            #print(unknown_details_grouped)
 
 
-        print("rows_with_unknown", rows_with_unknown)
+        #print("rows_with_unknown", rows_with_unknown)
 
         # step 2: ใส่ค่าใน result_df ใหม่ ตาม index
         def value_for_unknown_parameter(idx):
             return ', '.join(index2txt[idx]) if idx in index2txt else "" #None
         
-        print("result_df",result_df)
+        #print("result_df",result_df)
         
 
 # (ถ้าอยากให้ค่า default สำหรับแถวที่ไม่มี error ใช้ fillna เพิ่ม)
@@ -318,8 +368,9 @@ if uploaded_file is not None:
        
         
         # 1. เพิ่ม columns ใน excel_data
-        excel_data['Prediction'] = ""  # หรือ None, np.nan
-        excel_data['Unknown Parameter'] = ""
+        excel_data['Prediction'] = ""
+        excel_data['Unknown Parameter'] = ""  # หรือ None, np.nan
+        excel_data['confidences'] = ""
 
         #result_df["Unknown Parameter"] = result_df.index.map(value_for_unknown_parameter)
         if 'result_df' in locals() and not result_df.empty:
@@ -330,6 +381,7 @@ if uploaded_file is not None:
                     target_index = row['index']  # ค่า index ที่จะ map
                     if target_index in excel_data.index:
                         excel_data.loc[target_index, 'Prediction'] = row['Prediction']
+                        excel_data.loc[target_index, 'confidences'] = row['confidences']
                         if 'Unknown Parameter' in result_df.columns:
                             excel_data.loc[target_index, 'Unknown Parameter'] = row['Unknown Parameter']
                 
@@ -344,6 +396,7 @@ if uploaded_file is not None:
                         target_index = row['index']  # ค่า index ที่จะ map
                         if target_index in excel_data.index:
                             excel_data.loc[target_index, 'Prediction'] = row['Prediction']
+                            excel_data.loc[target_index, 'confidences'] = row['confidences']
                             if 'Unknown Parameter' in result_df.columns:
                                 excel_data.loc[target_index, 'Unknown Parameter'] = row['Unknown Parameter']
                 
@@ -375,8 +428,34 @@ if uploaded_file is not None:
         #manual_input_result['Unknown Parameter'] = manual_input_result['Unknown Parameter'].fillna("")
         # แทนทั้ง actual NaN และ string "NaN"
         manual_input_result['Unknown Parameter'] = manual_input_result['Unknown Parameter'].fillna("").replace("NaN", "")
+        manual_input_result = manual_input_result.rename(columns={'confidences': '% Confidence'})
+        # 1. เปลี่ยนชื่อคอลัมน์
+        manual_input_result = manual_input_result.rename(columns={'confidences': '% Confidence'})
+
+        # 1) แปลงเป็นตัวเลข
+        manual_input_result['% Confidence'] = pd.to_numeric(
+            manual_input_result['% Confidence'], errors='coerce'
+        )
+
+        # 2) ตัดทศนิยมแบบไม่ปัดให้เหลือ 2 ตำแหน่ง
+        manual_input_result['% Confidence'] = np.floor(
+            manual_input_result['% Confidence'] * 100
+        ) / 100
+
+        # 3) จัดรูปแบบการแสดงผล:
+        #    - ถ้าเป็นจำนวนเต็มพอดี -> ตัด .00 ออก
+        #    - ถ้าเป็นทศนิยม -> แสดงค่าทศนิยมตามจริง (เท่าที่มีหลัง step 2)
+        manual_input_result['% Confidence'] = manual_input_result['% Confidence'].apply(
+            lambda x: (str(int(x)) if x == np.floor(x) else ('{:.2f}'.format(x).rstrip('0').rstrip('.')))
+            if pd.notna(x) else np.nan
+        )
+
+        manual_input_result['Unknown Parameter'] = manual_input_result['Unknown Parameter'].fillna("").replace("NaN", "")
+        manual_input_result['% Confidence'] = manual_input_result['% Confidence'].fillna("").replace("NaN", "")
 
         print("manual_input_result: ", manual_input_result)
+
+        
         #print("########################################################################")
         df_display = manual_input_result.astype(str)
 
@@ -458,6 +537,8 @@ if uploaded_file is not None:
 
         output = io.BytesIO()
 
+       
+
         with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
             manual_input_result.to_excel(writer, index=False, sheet_name='Result Data')
             df_counts.to_excel(writer, index=False, sheet_name='Summary')
@@ -471,14 +552,27 @@ if uploaded_file is not None:
             data=output.getvalue(),
             file_name=export_filename,
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+)
+
+        # with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        #     manual_input_result.to_excel(writer, index=False, sheet_name='Result Data')
+        #     df_counts.to_excel(writer, index=False, sheet_name='Summary')
+        #     writer.close()
+
+        # st.success(f"Export file ready: {export_filename}")
+
+        # # เพิ่มบรรทัดนี้ก่อน download
+        # output.seek(0)  # ← สำคัญมาก!
+
+        # # Select save location: Streamlit ไม่สามารถเลือก local folder ได้โดยตรง ต้องใช้ download button แทน
+        # st.download_button(
+        #     label="Download Excel file",
+        #     data=output.getvalue(),
+        #     file_name=export_filename,
+        #     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        # )
         
-        )
+
        
     
-
-
-
-
-
-
 
