@@ -528,52 +528,11 @@ if uploaded_file is not None:
 
 
    
-    if st.button("Generate result report"):
-        # 3. Export to Excel (user specifies filename/location)
-        
-        dtstr = datetime.datetime.now().strftime("%Y%m%d")
-        #export_filename = f"{dtstr}_{ori_file_name}_results.xlsx"
-        export_filename = f"{ori_file_name}_results.xlsx"
-
-        output = io.BytesIO()
-
-       
-
-        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-            manual_input_result.to_excel(writer, index=False, sheet_name='Result Data')
-            df_counts.to_excel(writer, index=False, sheet_name='Summary')
-
-        st.success(f"Export file ready: {export_filename}")
-
-        output.seek(0)
-
-        st.download_button(
-            label="📥 Download Excel file",
-            data=output.getvalue(),
-            file_name=export_filename,
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-)
-
-        # with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        #     manual_input_result.to_excel(writer, index=False, sheet_name='Result Data')
-        #     df_counts.to_excel(writer, index=False, sheet_name='Summary')
-        #     writer.close()
-
-        # st.success(f"Export file ready: {export_filename}")
-
-        # # เพิ่มบรรทัดนี้ก่อน download
-        # output.seek(0)  # ← สำคัญมาก!
-
-        # # Select save location: Streamlit ไม่สามารถเลือก local folder ได้โดยตรง ต้องใช้ download button แทน
-        # st.download_button(
-        #     label="Download Excel file",
-        #     data=output.getvalue(),
-        #     file_name=export_filename,
-        #     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        # )
+   
         
 
        
     
+
 
 
