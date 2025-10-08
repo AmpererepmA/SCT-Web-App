@@ -363,7 +363,7 @@ if uploaded_file is not None:
 
         
 
-        st.write("ข้อมูลจาก Excel Template (Column Name: 1-8) และ ผลการทำนาย (Column Name: Predictive)")
+        st.write("ข้อมูลจาก Excel Template (Column Name: 1-8) และ ผลการทำนาย (Column Name: Prediction)")
 
        
         
@@ -575,4 +575,5 @@ if uploaded_file is not None:
 
        
     
+
 
