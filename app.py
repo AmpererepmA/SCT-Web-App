@@ -129,8 +129,10 @@ if uploaded_file is not None:
         #df_raw = pd.read_excel(uploaded_file, header=0).replace('  ', ' ', regex=False).apply(lambda x: x.str.strip() if x.dtype == "object" else x).dropna(how='all')
 
         # ใช้ตั้งแต่แถว 2 เป็นต้นไป (ใน pandas index 0 = Excel row 2)
-        manual_input = df_raw.copy().reset_index(drop=True)
-        excel_data = df_raw.iloc[:, 0:10].copy().reset_index(drop=True)  # columns 0-9 (A-J)
+        #manual_input = df_raw.copy().reset_index(drop=True)
+        manual_input = df_raw.loc[:, "1.Substrate":"8.Water Get In from Jacket Damage"].copy().reset_index(drop=True)
+        #excel_data = df_raw.iloc[:, 0:10].copy().reset_index(drop=True)  # columns 0-9 (A-J)
+        excel_data = df_raw.copy().reset_index(drop=True)
         #st.write("📄 ข้อมูลที่นำมาคำนวณ (ตั้งแต่แถวที่ 2 เป็นต้นไป):")
         #st.dataframe(manual_input)
         
@@ -526,13 +528,59 @@ if uploaded_file is not None:
     except Exception as e:
             st.error(f"เกิดข้อผิดพลาดในการประมวลผลไฟล์: {e}")
 
+    if st.button("Generate result report"):
+    # 1. Create export filename
+        dtstr = datetime.datetime.now().strftime("%Y%m%d")
+        export_filename = f"{ori_file_name}_results.xlsx"
 
+        # 2. Create in-memory Excel file
+        output = io.BytesIO()
+
+        # 3. Write Excel with borders applied to all cells in data range
+        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+            # Write both DataFrames
+            manual_input_result.to_excel(writer, index=False, sheet_name='Result Data')
+            df_counts.to_excel(writer, index=False, sheet_name='Summary')
+
+            workbook = writer.book
+            border_fmt = workbook.add_format({'border': 1})
+
+            # ===== Apply to "Result Data" sheet =====
+            worksheet1 = writer.sheets['Result Data']
+            rows1, cols1 = manual_input_result.shape
+
+            # Apply borders to all data cells + header
+            worksheet1.conditional_format(
+                0, 0, rows1, cols1 - 1,
+                {'type': 'no_errors', 'format': border_fmt}
+            )
+
+            # ===== Apply to "Summary" sheet =====
+            worksheet2 = writer.sheets['Summary']
+            rows2, cols2 = df_counts.shape
+
+            worksheet2.conditional_format(
+                0, 0, rows2, cols2 - 1,
+                {'type': 'no_errors', 'format': border_fmt}
+            )
+
+        # 4. Enable downloading
+        st.success(f"Export file ready: {export_filename}")
+        output.seek(0)
+        st.download_button(
+            label="📥 Download Excel file",
+            data=output.getvalue(),
+            file_name=export_filename,
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+   
    
    
         
 
        
     
+
 
 
 
