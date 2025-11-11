@@ -21,6 +21,14 @@ header_path = "Header SCT.png"
 logo_base64 = img_to_base64(logo_path)
 bg_base64 = img_to_base64(header_path)
 
+# === โหลดไฟล์ master.xlsx สำหรับดาวน์โหลด ===
+master_path = Path("cui_master_data_template_rev02_clean.xlsx")
+if master_path.exists():
+    with open(master_path, "rb") as f:
+        master_data = f.read()
+else:
+    master_data = b""
+
 # --- CSS และส่วนหัวเว็บ ---
 st.markdown(f"""
     <style>
@@ -71,6 +79,29 @@ st.markdown(f"""
         </div>
     </div>
 """, unsafe_allow_html=True)
+
+# --- แทรกปุ่มดาวน์โหลดไว้ตรง div ที่เราสร้าง ---
+# Streamlit ไม่ให้เราวาง st.download_button โดยตรงใน HTML เดิมได้
+# ดังนั้นเราจะสร้าง container overlay หลัง render HTML
+download_placeholder = st.empty()
+
+download_placeholder.markdown(
+    """
+    <div style='position:absolute; top:35px; right:60px; z-index:9999;'>
+        <!-- ปุ่มจะ render ที่นี่ -->
+    </div>
+    """,
+    unsafe_allow_html=True
+)
+
+# แสดงปุ่มดาวน์โหลด (จะอยู่บริเวณมุมขวาบน)
+st.download_button(
+    label="📥 Download Master File",
+    data=master_data,
+    file_name="cui_master_data_template_rev02_clean.xlsx",
+    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    key="download-master-btn",
+)
 
 # --- ข้อความแนะนำการอัปโหลด ---
 st.markdown(
@@ -477,4 +508,5 @@ if uploaded_file is not None:
 
        
     
+
 
